@@ -22,7 +22,7 @@ A Claude Code skill that integrates OpenAI's Codex CLI for independent code revi
 **Option 1: Direct Download**
 ```bash
 mkdir -p ~/.claude/skills/codex
-curl -o ~/.claude/skills/codex/SKILL.md https://raw.githubusercontent.com/YOUR-USERNAME/YOUR-REPO/main/SKILL.md
+curl -o ~/.claude/skills/codex/SKILL.md https://raw.githubusercontent.com/adampaulwalker/codex-skill/main/SKILL.md
 ```
 
 **Option 2: Manual Installation**
@@ -63,6 +63,7 @@ Claude: Codex approves!
 - ✅ Review specific commits
 - ✅ Review specific files or directories
 - ✅ Review implementation plans before coding
+- ✅ Background execution for large codebases (no timeout limits)
 - ✅ Seamless integration - stay in one terminal tab
 - ✅ No copy/paste between tools
 
@@ -82,7 +83,7 @@ MIT License - Feel free to use, modify, and share!
 
 ## Version
 
-1.0.0
+1.1.0
 
 ---
 
