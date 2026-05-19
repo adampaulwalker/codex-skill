@@ -16,10 +16,53 @@ allowed-tools:
 
 Use the Codex CLI to perform independent code reviews on changes made during your Claude Code session. This enables a "proposer-checker-maker-checker" workflow where Claude Code proposes/implements changes and Codex provides an independent review.
 
-**Why use this skill instead of the MCP?** The `mcp__multi-reasoning__codex_review` tool has hard timeout limitations that fail on large codebases. Running via Bash allows:
+**Why use this skill instead of the MCP?** The `mcp__multi-llm__code_review` tool has hard timeout limitations that fail on large codebases. Running via Bash allows:
 - No timeout constraints (configurable up to 10 min per call)
 - Background execution with `run_in_background: true` for very large reviews
 - Progress checking via `TaskOutput`
+
+## Pair-Programming Flow (Codex thinks first, every time)
+
+Per global CLAUDE.md the canonical loop is: **(1) Codex analyzes → (2) you implement the plan → (3) Codex reviews the diff → (4) fix until approved**. This applies to every code change regardless of size.
+
+### Step 1 input bundle (NON-NEGOTIABLE - before any prompt reaches Codex)
+
+For any bug-fix or AC-driven change, the input bundle sent to Codex MUST contain BOTH the bug ticket AND the parent user story, plus a labeled discrepancy framing paragraph. Codex without the parent user story will frequently propose a symptom fix; with the user story it proposes a contract-conformance fix. The 30-second cost of the bundle saves a rework cycle.
+
+Before sending a problem to Codex:
+
+1. **Pull the bug ticket** from ADO (or the equivalent source-system record) using `ADO_PAT_NEW` from `devops/.env.local` with `?$expand=relations`. Capture `System.Description`, `Microsoft.VSTS.TCM.ReproSteps`, comments, attachments.
+2. **Pull the parent user story.** From the bug ticket's `relations` array, find `System.LinkTypes.Hierarchy-Reverse`, parse the work-item id off the URL, fetch that work item. Read `System.Description`, `Microsoft.VSTS.Common.AcceptanceCriteria` (Acceptance Criteria), `Microsoft.VSTS.TCM.ReproSteps`, attachments IN FULL.
+3. **Write a 4-line discrepancy framing block** and paste it at the top of the Codex prompt:
+
+   ```
+   USER STORY: <verbatim AcceptanceCriteria>
+   BUG: <verbatim repro / symptom>
+   CURRENT CODE/DB: <observed behavior, with file:line citations>
+   DISCREPANCY: <where the gap is - what the user story requires that current code does not deliver>
+   ```
+
+4. **Codex receives all four** (user story, bug, current state, discrepancy) as input, not just the bug ticket alone.
+
+If the bug has no `Hierarchy-Reverse` parent, STOP and surface to the user. Do not invent a parent. Do not send Codex a bug-ticket-only prompt and hope. See memory [[feedback_pull_parent_user_story_first]] for the rule and incident pattern (it is the bug-ticket-to-user-story extension of [[feedback_source_of_truth_before_replication_brief]] and [[feedback_access_hub_source_of_truth_hierarchy]]).
+
+### Step 3 review input
+
+When the diff is ready, paste `git diff` PLUS the same 4-line discrepancy framing block from Step 1 into the Codex review prompt. Codex's review checks the diff against the user story AC, not just the symptom in the bug ticket.
+
+### CLI fallback (when MCP is unavailable)
+
+The same 4-line framing mandate applies to the CLI fallback (`codex exec --sandbox read-only --full-auto "<prompt>"`). The prompt the CLI receives MUST include the bug + parent user story + 4-line USER STORY / BUG / CURRENT CODE / DISCREPANCY block. A CLI-fallback prompt missing the parent user story is the same shallow-context failure mode as an MCP prompt missing it - the surface is different, the failure is identical.
+
+**Acceptance check before sending anything to Codex (MCP or CLI):**
+
+- [ ] Bug ticket pulled with `$expand=relations`?
+- [ ] Parent user story fetched via `System.LinkTypes.Hierarchy-Reverse`?
+- [ ] Verbatim `AcceptanceCriteria` text in the prompt?
+- [ ] 4-line USER STORY / BUG / CURRENT CODE / DISCREPANCY block at the top of the prompt?
+- [ ] Patch acceptance bar stated as "satisfies the parent AC", not "closes the bug symptom"?
+
+If any check fails, regenerate the prompt before sending.
 
 ## Prerequisites
 
